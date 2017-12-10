@@ -7,14 +7,14 @@ import time
 class TSL2561:
     """
     This class defines an API for the TSL2561 light sensor chip.
-    
+
     Example Usage:
-    
+
     sensor = TSL2561()
     sensor.power_on()
     sensor.get_light_levels()
     sensor.power_off()
-    
+
     """
     # Command opcode
     _tsl_cmd = 0x80
@@ -60,7 +60,7 @@ class TSL2561:
     def power_on(self):
         # Send power_on (0x03) command
         self._bus.write_byte_data(self._tsl_addr,
-								  0x00 | self._tsl_cmd, 0x03)
+                                  0x00 | self._tsl_cmd, 0x03)
 
     def power_off(self):
         # Send power_off (0x00) command
@@ -87,7 +87,7 @@ class TSL2561:
 
         # Send mode setting
         self._bus.write_byte_data(self._tsl_addr,
-								  0x01 | self._tsl_cmd, new_mode)
+                                  0x01 | self._tsl_cmd, new_mode)
 
     def get_light_levels(self, wait=True):
         """
@@ -102,16 +102,16 @@ class TSL2561:
         # Wait to read the data off of the chip
         if wait:
             delay = next((v for k, v in self.delays.items()
-						  if self.current_mode.endswith(k)))
+                          if self.current_mode.endswith(k)))
             time.sleep(delay)
 
         #Read channel words
         ch0 = self._bus.read_i2c_block_data(self._tsl_addr,
-											self._chan0 | self._tsl_cmd,
-											2)
+                                            self._chan0 | self._tsl_cmd,
+                                            2)
         ch1 = self._bus.read_i2c_block_data(self._tsl_addr,
-											self._chan1 | self._tsl_cmd, 
-											2)
+                                            self._chan1 | self._tsl_cmd,
+                                            2)
 
         # Convert the chanels to base 10 integers
         ch0 = ch0[1] * 256 + ch0[0]
@@ -135,14 +135,14 @@ class TSL2561:
 
         # Start detection
         self._bus.write_byte_data(self._tsl_addr, 0x01 | self._tsl_cmd,
-								  start_man)
+                                  start_man)
 
         # Sleep for specified delay time- this is the exposure time
         time.sleep(delay)
 
         # Stop detection
         self._bus.write_byte_data(self._tsl_addr, 0x01 | self._tsl_cmd,
-								  end_man)
+                                  end_man)
 
     @classmethod
     def luxcalc(Result0, Result1):
