@@ -10,6 +10,7 @@ class TSL2561:
 
     Example Usage:
 
+    from TSL2561 import TSL2561
     sensor = TSL2561()
     sensor.power_on()
     sensor.get_light_levels()
@@ -29,15 +30,15 @@ class TSL2561:
     # Exposure modes
     modes = dict(
         # Normal modes
-        LowShort   = 0x00, # x1 Gain 13.7 miliseconds
-        LowMed     = 0x01, # x1 Gain 101 miliseconds
-        LowLong    = 0x02, # x1 Gain 402 miliseconds
+        LowShort   = 0x00, # x1 Gain 13.7 milliseconds
+        LowMed     = 0x01, # x1 Gain 101 milliseconds
+        LowLong    = 0x02, # x1 Gain 402 milliseconds
         LowManual  = 0x03, # x1 Gain Manual
 
         # LowLight Modes
-        HighShort  = 0x10, # x16 Gain 13.7 miliseconds
-        HighMed    = 0x11, # x16 Gain 100 miliseconds
-        HighLong   = 0x12, # x16 Gain 402 miliseconds
+        HighShort  = 0x10, # x16 Gain 13.7 milliseconds
+        HighMed    = 0x11, # x16 Gain 100 milliseconds
+        HighLong   = 0x12, # x16 Gain 402 milliseconds
         HighManual = 0x13, # x16 Gain Manual
         )
 
