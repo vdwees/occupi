@@ -1,6 +1,6 @@
-#!/usr/bin/python3
-# Library for the TSL2561 Luminosity Sensor
-
+"""
+Project Occupi's library for the TSL2561 Luminosity Sensor
+"""
 import smbus
 import time
 
