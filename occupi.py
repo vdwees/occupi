@@ -61,19 +61,17 @@ def remove_me_from_stack(user, channel):
         stack.remove(user)
     post_message(message=' '.join(message), channel=channel)
 
+def unknown_request(user, channel):
+    post_message(message='Received unknown request. Options are one of {}'.format(list(commands)), channel=channel)
+
 commands = {
     '?': query_status,
     '!': add_me_to_stack,
     '--': remove_me_from_stack}
 
-commands_list = list(commands)
-
 def handle_message(message, user, channel):
-    if message in commands_list:
-        # Do request
-        commands[message](user, channel)
-    else:
-        post_message(message='Received unknown request: "{}". Options are {}'.format(message, command_list), channel=channel)
+    # Do request
+    commands.get(message, unknown_request)(user, channel)
 
 stack = []
 
