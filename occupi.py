@@ -61,40 +61,40 @@ def query_status(user, channel):
         message.append('Room is currently occupied,')
     else:
         message.append('Room is currently free,')
-    stack_length = len(stack)
-    if stack_length == 0:
+    queue_length = len(queue)
+    if queue_length == 0:
         message.append('and the queue is empty.')
     else:
-        message.append('and the queue is {} people long.'.format(stack_length))
-        index = _get_index(stack, user)
+        message.append('and the queue is {} people long.'.format(queue_length))
+        index = _get_index(queue, user)
         if index is None:
             message.append('Press "!" to join the queue to be notified when it next _becomes_ free.')
         else:
             message.append('You are in position {}.'.format(index + 1))
     post_message(message=' '.join(message), channel=channel)
 
-def add_me_to_stack(user, channel):
-    index = _get_index(stack, user)
+def add_me_to_queue(user, channel):
+    index = _get_index(queue, user)
     user_channels[user] = channel
     message = []
     if index is None:
-        stack.append(user)
+        queue.append(user)
         message.append('Added you to the queue.')
-        index = _get_index(stack, user)
+        index = _get_index(queue, user)
     else:
         message.append('You are already in the queue.')
-    message.append('You are in position {} out of {}.'.format(index + 1, len(stack)))
+    message.append('You are in position {} out of {}.'.format(index + 1, len(queue)))
     post_message(message=' '.join(message), channel=channel)
 
-def remove_me_from_stack(user, channel):
-    index = _get_index(stack, user)
+def remove_me_from_queue(user, channel):
+    index = _get_index(queue, user)
     message = []
     if index is None:
         message.append('You are not in the queue. Sending "--" removes you from the queue.')
     else:
         message.append('Removed you from the queue.')
-        message.append('You were in position {} out of {}.'.format(index + 1, len(stack)))
-        stack.remove(user)
+        message.append('You were in position {} out of {}.'.format(index + 1, len(queue)))
+        queue.remove(user)
     post_message(message=' '.join(message), channel=channel)
 
 def notify_room_is_free(user, channel):
@@ -105,14 +105,14 @@ def unknown_request(user, channel):
 
 commands = {
     '?': query_status,
-    '!': add_me_to_stack,
-    '--': remove_me_from_stack}
+    '!': add_me_to_queue,
+    '--': remove_me_from_queue}
 
 def handle_message(message, user, channel):
     # Do request
     commands.get(message, unknown_request)(user, channel)
 
-stack = []
+queue = []
 sensor = LightSensor()
 is_occupied = False
 status_changed = False
@@ -124,12 +124,13 @@ def run():
         while True:
             global is_occupied, status_changed
             is_occupied, status_changed = sensor.check_occupied()
+            # Check if we need to send a notification
             if status_changed:
                 print('Occupancy status changed to {}'.format('Occupied' if is_occupied else 'Free'))
-                if len(stack) > 0:
-                    user = stack.pop(0)
+                if len(queue) > 0:
+                    user = queue.pop(0)
                     notify_room_is_free(user, user_channels[user])
-
+            # Respond to any new messages
             event_list = slack_client.rtm_read()
             if len(event_list) > 0:
                 for event in event_list:
