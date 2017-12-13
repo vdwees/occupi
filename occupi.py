@@ -1,5 +1,6 @@
-import os, slackclient, time
-import random
+import os
+import slackclient
+import time
 
 # delay in seconds before checking for new events 
 SOCKET_DELAY = 1
@@ -9,28 +10,48 @@ SLACK_TOKEN = os.environ.get('SLACK_TOKEN')
 SLACK_ID = os.environ.get('SLACK_ID')
 slack_client = slackclient.SlackClient(SLACK_TOKEN)
 
-commands = dict(
-    query_status = '?',
-    add_me_to_stack = '!',
-    remove_me_from_stack = '--')
 
-command_list = list(commands.values())
-
-def handle_message(message, user, channel):
-    if message in command_list:
-        # TODO: do request
-        pass
-    else:
-        post_message(message='Received unknown request: "{}". Options are {}'.format(message, command_list), channel=channel)
+def _get_index(input_list, entry):
+    try:
+        return input_list.index(entry)
+    except ValueError:
+        return None
 
 def post_message(message, channel):
     slack_client.api_call('chat.postMessage', channel=channel,
                           text=message, as_user=True)
-stack = []
 
-query_status = '?'
-add_me_to_stack = '!'
-remove_me_from_stack = '--'
+def query_status(user, channel):
+    message = []
+    # TODO: deterimine occupancy status and report
+    message.append('Room is currently occupied,')
+    stack_length = len(stack)
+    if stack_length == 0:
+        message.append('and the queue is empty.')
+    else:
+        message.append('and the queue is {} people long.'.format(stack_length))
+    index = _get_index(stack, user)
+    if index is None:
+        message.append('Press "!" to join the queue.')
+    else:
+        message.append('You are in position {}.'.format(index))
+    post_message(message=' '.join(message), channel=channel)
+
+commands = {
+    '?': query_status,
+    '!': 'add_me_to_stack',
+    '--': 'remove_me_from_stack'}
+
+command_list = list(commands)
+
+def handle_message(message, user, channel):
+    if message in command_list:
+        # Do request
+        commands[message](user, channel)
+    else:
+        post_message(message='Received unknown request: "{}". Options are {}'.format(message, command_list), channel=channel)
+
+stack = []
 
 def run():
     if slack_client.rtm_connect():
