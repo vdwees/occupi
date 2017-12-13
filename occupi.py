@@ -4,8 +4,6 @@ import time
 from sensors.TSL2561 import TSL2561
 import collections
 
-# delay in seconds before checking for new events 
-SOCKET_DELAY = 1
 # slackbot environment variables
 SLACK_NAME = os.environ.get('SLACK_NAME')
 SLACK_TOKEN = os.environ.get('SLACK_TOKEN')
@@ -24,12 +22,13 @@ class LightSensor(TSL2561):
         self.proportion_change_threshold = kwargs.get('proportion_change_threshold', 0.50)
         self._is_occupied = False
 
-    def check_occupied():
+    def check_occupied(self):
         # Note: for check_occupied to be accurate, it must be called every second
         # Rather than set a fixed light threshhold, it is comparing the change in
         # light levels relative to the last time it was called
         current_level = self.get_light_levels()[0]
-        prop_change = current_level / (sum(self._history) / self._max_history)
+        hist_avg = sum(self._history) / self._max_history
+        prop_change = (current_level - hist_avg) / hist_avg
         self._history.pop()
         self._history.appendleft(current_level)
         threshhold = self.proportion_change_threshold
@@ -37,11 +36,11 @@ class LightSensor(TSL2561):
         # Return:
         #  1) whether the room is occupied
         #  2) whether the occupancy status changed
-        if prop_change <= threshhold and is_occupied:
-            is_occupied = False
+        if prop_change <= -threshhold and is_occupied:
+            self._is_occupied = False
             return False, True
         if prop_change >= threshhold and not is_occupied:
-            is_occupied = True
+            self._is_occupied = True
             return True, True
         return is_occupied, False
 
@@ -58,8 +57,10 @@ def post_message(message, channel):
 
 def query_status(user, channel):
     message = []
-    # TODO: deterimine occupancy status and report
-    message.append('Room is currently occupied,')
+    if is_occupied:
+        message.append('Room is currently occupied,')
+    else:
+        message.append('Room is currently free,')
     stack_length = len(stack)
     if stack_length == 0:
         message.append('and the queue is empty.')
@@ -108,17 +109,28 @@ def handle_message(message, user, channel):
     commands.get(message, unknown_request)(user, channel)
 
 stack = []
+sensor = LightSensor()
+is_occupied = False
+status_changed = False
 
 def run():
     if slack_client.rtm_connect():
         print('[.] Occupi is ON...')
         while True:
+            global is_occupied, status_changed
+            is_occupied, status_changed = sensor.check_occupied()
+            if status_changed:
+                print('Occupancy status changed to {}'.format('Occupied' if is_occupied else 'Free'))
             event_list = slack_client.rtm_read()
             if len(event_list) > 0:
                 for event in event_list:
                     if event.get('type') == 'message' and event.get('user') != SLACK_ID:
-                        handle_message(message=event.get('text'), user=event.get('user'), channel=event.get('channel'))
-            time.sleep(SOCKET_DELAY)
+                        handle_message(
+                                message=event.get('text'),
+                                user=event.get('user'),
+                                channel=event.get('channel'))
+            sleeptime = 1.0 - time.time() % 1
+            time.sleep(sleeptime)
     else:
         print('[!] Connection to Slack failed.')
 
