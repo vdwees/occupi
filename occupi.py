@@ -27,7 +27,7 @@ class LightSensor(TSL2561):
         # Rather than set a fixed light threshhold, it is comparing the change in
         # light levels relative to the last time it was called
         current_level = self.get_light_levels()[0]
-        hist_avg = sum(self._history) / self._max_history
+        hist_avg = sum(self._history) / self._max_history + 1e-3
         prop_change = (current_level - hist_avg) / hist_avg
         self._history.pop()
         self._history.appendleft(current_level)
