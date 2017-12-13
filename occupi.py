@@ -18,6 +18,7 @@ def _get_index(input_list, entry):
         return None
 
 def post_message(message, channel):
+    print('Posted message "{}" to channel "{}"'.format(message, channel))
     slack_client.api_call('chat.postMessage', channel=channel,
                           text=message, as_user=True)
 
@@ -49,15 +50,26 @@ def add_me_to_stack(user, channel):
     message.append('You are in position {} out of {}.'.format(index + 1, len(stack)))
     post_message(message=' '.join(message), channel=channel)
 
+def remove_me_from_stack(user, channel):
+    index = _get_index(stack, user)
+    message = []
+    if index is None:
+        message.append('You are not in the queue.')
+    else:
+        message.append('Removed you from the queue.')
+        message.append('You were in position {} out of {}.'.format(index + 1, len(stack)))
+        stack.remove(user)
+    post_message(message=' '.join(message), channel=channel)
+
 commands = {
     '?': query_status,
     '!': add_me_to_stack,
-    '--': 'remove_me_from_stack'}
+    '--': remove_me_from_stack}
 
-command_list = list(commands)
+commands_list = list(commands)
 
 def handle_message(message, user, channel):
-    if message in command_list:
+    if message in commands_list:
         # Do request
         commands[message](user, channel)
     else:
