@@ -44,9 +44,9 @@ class TSL2561:
 
     delays = {'Short': 0.014, 'Med': 0.101, 'Long': 0.403}
 
-    def __init__(self, tsl_addr=0x39):
+    def __init__(self, **kwargs):
         # Default I2C address is 0x39, alternate 0x29, 0x49
-        self._tsl_addr = tsl_addr
+        self._tsl_addr = kwargs.get('tsl_addr', 0x39)
 
         # Get I2C bus
         self._bus = smbus.SMBus(1)

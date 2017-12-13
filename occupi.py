@@ -1,6 +1,8 @@
 import os
 import slackclient
 import time
+from sensors.TSL2561 import TSL2561
+import collections
 
 # delay in seconds before checking for new events 
 SOCKET_DELAY = 1
@@ -10,6 +12,38 @@ SLACK_TOKEN = os.environ.get('SLACK_TOKEN')
 SLACK_ID = os.environ.get('SLACK_ID')
 slack_client = slackclient.SlackClient(SLACK_TOKEN)
 
+
+class LightSensor(TSL2561):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.set_mode('LowMed')
+        self.power_on()
+        seed = self.get_light_levels()[0]
+        self._max_history = kwargs.get('max_history', 2)
+        self._history = collections.deque([seed] * self._max_history)
+        self.proportion_change_threshold = kwargs.get('proportion_change_threshold', 0.50)
+        self._is_occupied = False
+
+    def check_occupied():
+        # Note: for check_occupied to be accurate, it must be called every second
+        # Rather than set a fixed light threshhold, it is comparing the change in
+        # light levels relative to the last time it was called
+        current_level = self.get_light_levels()[0]
+        prop_change = current_level / (sum(self._history) / self._max_history)
+        self._history.pop()
+        self._history.appendleft(current_level)
+        threshhold = self.proportion_change_threshold
+        is_occupied = self._is_occupied
+        # Return:
+        #  1) whether the room is occupied
+        #  2) whether the occupancy status changed
+        if prop_change <= threshhold and is_occupied:
+            is_occupied = False
+            return False, True
+        if prop_change >= threshhold and not is_occupied:
+            is_occupied = True
+            return True, True
+        return is_occupied, False
 
 def _get_index(input_list, entry):
     try:
