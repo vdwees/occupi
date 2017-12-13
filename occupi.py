@@ -75,6 +75,7 @@ def query_status(user, channel):
 
 def add_me_to_stack(user, channel):
     index = _get_index(stack, user)
+    user_channels[user] = channel
     message = []
     if index is None:
         stack.append(user)
@@ -96,6 +97,9 @@ def remove_me_from_stack(user, channel):
         stack.remove(user)
     post_message(message=' '.join(message), channel=channel)
 
+def notify_room_is_free(user, channel):
+    post_message(message='Good News! The room is free.', channel=channel)
+
 def unknown_request(user, channel):
     post_message(message='Received unknown request. Options are one of {}'.format(list(commands)), channel=channel)
 
@@ -112,6 +116,7 @@ stack = []
 sensor = LightSensor()
 is_occupied = False
 status_changed = False
+user_channels = {}
 
 def run():
     if slack_client.rtm_connect():
@@ -121,6 +126,10 @@ def run():
             is_occupied, status_changed = sensor.check_occupied()
             if status_changed:
                 print('Occupancy status changed to {}'.format('Occupied' if is_occupied else 'Free'))
+                if len(stack) > 0:
+                    user = stack.pop(0)
+                    notify_room_is_free(user, user_channels[user])
+
             event_list = slack_client.rtm_read()
             if len(event_list) > 0:
                 for event in event_list:
