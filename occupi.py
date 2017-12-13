@@ -34,12 +34,24 @@ def query_status(user, channel):
     if index is None:
         message.append('Press "!" to join the queue.')
     else:
-        message.append('You are in position {}.'.format(index))
+        message.append('You are in position {}.'.format(index + 1))
+    post_message(message=' '.join(message), channel=channel)
+
+def add_me_to_stack(user, channel):
+    index = _get_index(stack, user)
+    message = []
+    if index is None:
+        stack.append(user)
+        message.append('Added you to the queue.')
+        index = _get_index(stack, user)
+    else:
+        message.append('You are already in the queue.')
+    message.append('You are in position {} out of {}.'.format(index + 1, len(stack)))
     post_message(message=' '.join(message), channel=channel)
 
 commands = {
     '?': query_status,
-    '!': 'add_me_to_stack',
+    '!': add_me_to_stack,
     '--': 'remove_me_from_stack'}
 
 command_list = list(commands)
