@@ -66,11 +66,11 @@ def query_status(user, channel):
         message.append('and the queue is empty.')
     else:
         message.append('and the queue is {} people long.'.format(stack_length))
-    index = _get_index(stack, user)
-    if index is None:
-        message.append('Press "!" to join the queue.')
-    else:
-        message.append('You are in position {}.'.format(index + 1))
+        index = _get_index(stack, user)
+        if index is None:
+            message.append('Press "!" to join the queue to be notified when it next _becomes_ free.')
+        else:
+            message.append('You are in position {}.'.format(index + 1))
     post_message(message=' '.join(message), channel=channel)
 
 def add_me_to_stack(user, channel):
@@ -98,7 +98,7 @@ def remove_me_from_stack(user, channel):
     post_message(message=' '.join(message), channel=channel)
 
 def notify_room_is_free(user, channel):
-    post_message(message='Good News! The room is free.', channel=channel)
+    post_message(message='Good news! The room is free.', channel=channel)
 
 def unknown_request(user, channel):
     post_message(message='Received unknown request. Options are one of {}'.format(list(commands)), channel=channel)
