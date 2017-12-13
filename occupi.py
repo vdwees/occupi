@@ -90,7 +90,7 @@ def remove_me_from_stack(user, channel):
     index = _get_index(stack, user)
     message = []
     if index is None:
-        message.append('You are not in the queue.')
+        message.append('You are not in the queue. Sending "--" removes you from the queue.')
     else:
         message.append('Removed you from the queue.')
         message.append('You were in position {} out of {}.'.format(index + 1, len(stack)))
