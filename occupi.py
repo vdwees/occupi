@@ -10,6 +10,12 @@ SLACK_TOKEN = os.environ.get('SLACK_TOKEN')
 SLACK_ID = os.environ.get('SLACK_ID')
 slack_client = slackclient.SlackClient(SLACK_TOKEN)
 
+# Define a global function for posting messages on the slack_client
+def post_message(message, channel):
+    print('Posted message "{}" to channel "{}"'.format(message, channel))
+    slack_client.api_call('chat.postMessage', channel=channel,
+                          text=message, as_user=True)
+
 
 class LightSensor(TSL2561):
     def __init__(self, **kwargs):
@@ -44,105 +50,120 @@ class LightSensor(TSL2561):
             return True, True
         return is_occupied, False
 
-def _get_index(input_list, entry):
-    try:
-        return input_list.index(entry)
-    except ValueError:
-        return None
 
-def post_message(message, channel):
-    print('Posted message "{}" to channel "{}"'.format(message, channel))
-    slack_client.api_call('chat.postMessage', channel=channel,
-                          text=message, as_user=True)
+class RoomQueue:
+    def __init__(self):
+        self.queue = []
+        self.sensor = LightSensor()
+        self.is_occupied = False
+        self.user_channels = {}
+        self._recognized_commands = {
+            '?': self.report_status,
+            '!': self.add_user,
+            '--': self.remove_user}
 
-def query_status(user, channel):
-    message = []
-    if is_occupied:
-        message.append('Room is currently occupied,')
-    else:
-        message.append('Room is currently free,')
-    queue_length = len(queue)
-    if queue_length == 0:
-        message.append('and the queue is empty.')
-    else:
-        message.append('and the queue is {} people long.'.format(queue_length))
-        index = _get_index(queue, user)
-        if index is None:
-            message.append('Press "!" to join the queue to be notified when it next _becomes_ free.')
+    def _get_index(self, user):
+        try:
+            return self.queue.index(user)
+        except ValueError:
+            return None
+
+    def report_status(self, user, channel):
+        """
+        Reply to a query status
+        """
+        message = []
+
+        # Read occupancy status
+        if self.is_occupied:
+            message.append('Room is currently occupied,')
         else:
-            message.append('You are in position {}.'.format(index + 1))
-    post_message(message=' '.join(message), channel=channel)
+            message.append('Room is currently free,')
 
-def add_me_to_queue(user, channel):
-    index = _get_index(queue, user)
-    user_channels[user] = channel
-    message = []
-    if index is None:
-        queue.append(user)
-        message.append('Added you to the queue.')
-        index = _get_index(queue, user)
-    else:
-        message.append('You are already in the queue.')
-    message.append('You are in position {} out of {}.'.format(index + 1, len(queue)))
-    post_message(message=' '.join(message), channel=channel)
+        # Read queue status
+        queue_length = len(self.queue)
+        if queue_length == 0:
+            message.append('and the queue is empty.')
+        else:
+            message.append('and the queue is {} people long.'.format(queue_length))
+            index = self._get_index(user)
+            if index is None:
+                message.append('Press "!" to join the queue to be notified when it next _becomes_ free.')
+            else:
+                message.append('You are in position {}.'.format(index + 1))
 
-def remove_me_from_queue(user, channel):
-    index = _get_index(queue, user)
-    message = []
-    if index is None:
-        message.append('You are not in the queue. Sending "--" removes you from the queue.')
-    else:
-        message.append('Removed you from the queue.')
-        message.append('You were in position {} out of {}.'.format(index + 1, len(queue)))
-        queue.remove(user)
-    post_message(message=' '.join(message), channel=channel)
+        # Post reply
+        post_message(message=' '.join(message), channel=channel)
 
-def notify_room_is_free(user, channel):
-    post_message(message='Good news! The room is free.', channel=channel)
+    def add_user(self, user, channel):
+        index = self._get_index(user)
+        if self.user_channel.get(user, channel) != channel:
+            # If this case occurs, we may need to store channels with more than the user name as the key
+            print('Warning: overwriting {0}:{1} with {0}:{2}'.format(user, self.user_channel[user], channel))
+        self.user_channels[user] = channel
+        message = []
+        if index is None:
+            self.queue.append(user)
+            message.append('Added you to the queue.')
+            index = self._get_index(user)
+        else:
+            message.append('You are already in the queue.')
+        message.append('You are in position {} out of {}.'.format(index + 1, len(self.queue)))
+        post_message(message=' '.join(message), channel=channel)
 
-def unknown_request(user, channel):
-    post_message(message='Received unknown request. Options are one of {}'.format(list(commands)), channel=channel)
+    def remove_user(self, user, channel):
+        index = self._get_index(queue, user)
+        message = []
+        if index is None:
+            message.append('You are not in the queue. Sending "--" removes you from the queue.')
+        else:
+            message.append('Removed you from the queue.')
+            message.append('You were in position {} out of {}.'.format(index + 1, len(self.queue)))
+            self.queue.remove(user)
+        post_message(message=' '.join(message), channel=channel)
 
-commands = {
-    '?': query_status,
-    '!': add_me_to_queue,
-    '--': remove_me_from_queue}
+    def detect_room_status(self):
+        self.is_occupied, status_changed = self.sensor.check_occupied()
+        # Check if we need to send a notification
+        if status_changed:
+            print('Occupancy status changed to {}'.format('Occupied' if self.is_occupied else 'Free'))
+            if len(self.queue) > 0:
+                user = self.queue.pop(0)
+                channel = self.user_channels[user]
+                post_message(message='Good news! The room is free.', channel=channel)
 
-def handle_message(message, user, channel):
-    # Do request
-    commands.get(message, unknown_request)(user, channel)
+    def unknown_request(self, user, channel):
+        post_message(message='Received unknown request. Options are one of {}'.format(list(commands)), channel=channel)
 
-queue = []
-sensor = LightSensor()
-is_occupied = False
-status_changed = False
-user_channels = {}
+    def do_command(self, event):
+        message = event.get('text')
+        user = event.get('user')
+        channel = event.get('channel')
+        # Do request (does unknown_request() if no match)
+        self._recognized_commands.get(message, self.unknown_request)(user, channel)
 
-def run():
+
+def run(room_queue):
     if slack_client.rtm_connect():
         print('[.] Occupi is ON...')
         while True:
-            global is_occupied, status_changed
-            is_occupied, status_changed = sensor.check_occupied()
-            # Check if we need to send a notification
-            if status_changed:
-                print('Occupancy status changed to {}'.format('Occupied' if is_occupied else 'Free'))
-                if len(queue) > 0:
-                    user = queue.pop(0)
-                    notify_room_is_free(user, user_channels[user])
+            room_queue.detect_room_status()
             # Respond to any new messages
             event_list = slack_client.rtm_read()
             if len(event_list) > 0:
                 for event in event_list:
                     if event.get('type') == 'message' and event.get('user') != SLACK_ID:
-                        handle_message(
-                                message=event.get('text'),
-                                user=event.get('user'),
-                                channel=event.get('channel'))
+                        room_queue.do_command(event)
             sleeptime = 1.0 - time.time() % 1
             time.sleep(sleeptime)
     else:
         print('[!] Connection to Slack failed.')
 
 if __name__=='__main__':
-    run()
+    room_queue = RoomQueue()
+    try:
+        run(room_queue)
+    except Exception as e:
+        raise e
+    finally:
+        room_queue.sensor.power_off()
