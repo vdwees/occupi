@@ -133,7 +133,7 @@ class RoomQueue:
                 post_message(message='Good news! The room is free.', channel=channel)
 
     def unknown_request(self, user, channel):
-        post_message(message='Received unknown request. Options are one of {}'.format(list(commands)), channel=channel)
+        post_message(message='Received unknown request. Options are one of {}'.format(list(self._recognized_commands)), channel=channel)
 
     def do_command(self, event):
         message = event.get('text')
