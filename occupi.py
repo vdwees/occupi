@@ -97,9 +97,9 @@ class RoomQueue:
 
     def add_user(self, user, channel):
         index = self._get_index(user)
-        if self.user_channel.get(user, channel) != channel:
+        if self.user_channels.get(user, channel) != channel:
             # If this case occurs, we may need to store channels with more than the user name as the key
-            print('Warning: overwriting {0}:{1} with {0}:{2}'.format(user, self.user_channel[user], channel))
+            print('Warning: overwriting {0}:{1} with {0}:{2}'.format(user, self.user_channels[user], channel))
         self.user_channels[user] = channel
         message = []
         if index is None:
