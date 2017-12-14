@@ -15,8 +15,11 @@ Room occupancy monitoring based on Raspberry Pi
 
 ## Tasklist
 - Build easy-to-use api classes for supported sensors
-  - [X] TSL2561 occupancy sensor
-- [ ] Develop way to determine occupancy status from sensors
-- [ ] Build a low-energy monitoring script that can respond to occupancy 
-  status requests and log occupancy statistics
+  - [X] TSL2561 light level sensor
+  - [ ] Others? (e.g. ir motion sensors)
+- [X] Develop way to determine occupancy status from sensors
+- [X] Build a low-energy monitoring script that can:
+  - [X] respond to occupancy status requests (slack app websocket implementation)
+  - [X] manage usage requests on a queue, notify users when room becomes free
+  - [ ] log occupancy statistics
 
