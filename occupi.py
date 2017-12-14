@@ -127,7 +127,7 @@ class RoomQueue:
         # Check if we need to send a notification
         if status_changed:
             print('Occupancy status changed to {}'.format('Occupied' if self.is_occupied else 'Free'))
-            if len(self.queue) > 0:
+            if len(self.queue) > 0 and not self.is_occupied:
                 user = self.queue.pop(0)
                 channel = self.user_channels[user]
                 post_message(message='Good news! The room is free.', channel=channel)
