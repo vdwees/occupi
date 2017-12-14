@@ -3,6 +3,15 @@ import slackclient
 import time
 from sensors.TSL2561 import TSL2561
 import collections
+import logging
+
+# Set up logging
+logger = logging.getLogger('occupi')
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 # slackbot environment variables
 SLACK_NAME = os.environ.get('SLACK_NAME')
@@ -12,7 +21,7 @@ slack_client = slackclient.SlackClient(SLACK_TOKEN)
 
 # Define a global function for posting messages on the slack_client
 def post_message(message, channel):
-    print('Posted message "{}" to channel "{}"'.format(message, channel))
+    logger.debug('Posted message "{}" to channel "{}"'.format(message, channel))
     slack_client.api_call('chat.postMessage', channel=channel,
                           text=message, as_user=True)
 
@@ -99,7 +108,7 @@ class RoomQueue:
         index = self._get_index(user)
         if self.user_channels.get(user, channel) != channel:
             # If this case occurs, we may need to store channels with more than the user name as the key
-            print('Warning: overwriting {0}:{1} with {0}:{2}'.format(user, self.user_channels[user], channel))
+            logger.warning('Overwriting {0}:{1} with {0}:{2}'.format(user, self.user_channels[user], channel))
         self.user_channels[user] = channel
         message = []
         if index is None:
@@ -126,7 +135,7 @@ class RoomQueue:
         self.is_occupied, status_changed = self.sensor.check_occupied()
         # Check if we need to send a notification
         if status_changed:
-            print('Occupancy status changed to {}'.format('Occupied' if self.is_occupied else 'Free'))
+            logger.info('Occupancy status changed to {}'.format('Occupied' if self.is_occupied else 'Free'))
             if len(self.queue) > 0 and not self.is_occupied:
                 user = self.queue.pop(0)
                 channel = self.user_channels[user]
@@ -145,7 +154,7 @@ class RoomQueue:
 
 def run(room_queue):
     if slack_client.rtm_connect():
-        print('[.] Occupi is ON...')
+        logger.info('Occupi is ON.')
         while True:
             room_queue.detect_room_status()
             # Respond to any new messages
@@ -157,7 +166,7 @@ def run(room_queue):
             sleeptime = 1.0 - time.time() % 1
             time.sleep(sleeptime)
     else:
-        print('[!] Connection to Slack failed.')
+        logger.error('Connection to Slack failed.')
 
 if __name__=='__main__':
     room_queue = RoomQueue()
