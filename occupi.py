@@ -112,7 +112,7 @@ class RoomQueue:
         post_message(message=' '.join(message), channel=channel)
 
     def remove_user(self, user, channel):
-        index = self._get_index(queue, user)
+        index = self._get_index(user)
         message = []
         if index is None:
             message.append('You are not in the queue. Sending "--" removes you from the queue.')
