@@ -4,6 +4,7 @@ import time
 from sensors.TSL2561 import TSL2561
 import collections
 import logging
+import numpy as np
 
 # Set up logging
 logger = logging.getLogger('occupi')
@@ -31,30 +32,54 @@ class LightSensor(TSL2561):
         super().__init__(**kwargs)
         self.set_mode('LowMed')
         self.power_on()
+        # Regardless of background lighting, the lighting in the room this sensor is monitoring
+        # will produce a consistant and measureable instantaneous increase (or decrease)
+        # We want the sensor to filter out all light level changes that are not related to the
+        # electrical lighting of the monitored room. We call this change the trigger magnitude.
+        self._trigger = 0.0
+        # We set a decay factor, so that the trigger magnitude has a half-life. This
+        # helps the sensor adapt to changes in the environment
+        self._trigger_decay = np.exp(np.log(0.5)/(12 * 60 * 60)) # half-life of 12 hrs
+        # We keep a small history so that flickers can't dominate a descision. A history of 6
+        # works well because we can use the difference between the median of the first 3 elements
+        # and the median of the last 2 elements and current reading to calculate the change
+        self._max_history = 6
         seed = self.get_light_levels()[0]
-        self._max_history = kwargs.get('max_history', 2)
-        self._history = collections.deque([seed] * self._max_history)
-        self.proportion_change_threshold = kwargs.get('proportion_change_threshold', 0.50)
+        self._history = np.full(self._max_history, seed)
+        # We may want to relax the trigger magnitute by a factor when testing for changes
+        self._trigger_relaxation = kwargs.get('trigger_relaxation', 0.50)
         self._is_occupied = False
 
     def check_occupied(self):
-        # Note: for check_occupied to be accurate, it must be called every second
-        # Rather than set a fixed light threshhold, it is comparing the change in
-        # light levels relative to the last time it was called
-        current_level = self.get_light_levels()[0]
-        hist_avg = sum(self._history) / self._max_history + 1e-3
-        prop_change = (current_level - hist_avg) / hist_avg
-        self._history.pop()
-        self._history.appendleft(current_level)
-        threshhold = self.proportion_change_threshold
+        """
+        Notes:
+           - For check_occupied to be accurate as is, it must be called every second
+           - Rather than set a fixed light threshhold, measure changes in light levels
+        """
+        # Shift history forward, dropping the oldest entry and adding latest reading
+        self._history[:-1] = self._history[1:]
+        self._history[-1] = self.get_light_levels()[0]
+
+        # Divide the history in two, and take the median of the two sets
+        mid = int(self._max_history / 2)
+        hist0 = np.median(self._history[:mid])
+        hist1 = np.median(self._history[mid:])
+
+        # Update trigger magnitude
+        self._trigger *= self._trigger_decay
+        self._trigger = np.max((np.abs(hist1 - hist0), self._trigger))
+
+        # Determine if change was significant
+        threshhold = self._trigger_relaxation * self._trigger
+        change = hist1 - hist0
         is_occupied = self._is_occupied
         # Return:
         #  1) whether the room is occupied
         #  2) whether the occupancy status changed
-        if prop_change <= -threshhold and is_occupied:
+        if change <= -threshhold and is_occupied:
             self._is_occupied = False
             return False, True
-        if prop_change >= threshhold and not is_occupied:
+        if change >= threshhold and not is_occupied:
             self._is_occupied = True
             return True, True
         return is_occupied, False
